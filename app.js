@@ -132,7 +132,7 @@ const ALLOWED_USERS = [
     { username: 'mhmddikyy', password: 'Ketua', nama: 'Diky', role: 'ketua', jabatan: 'Ketua' },
     { username: 'Rosiqin', password: 'WakilKetua', nama: 'Rosi', role: 'wakil', jabatan: 'Wakil Ketua' },
     { username: 'Ihya', password: 'Sekertaris', nama: 'Ihya', role: 'sekertaris', jabatan: 'Sekertaris' },
-    { username: 'Miranda', password: 'Ketua', nama: 'Miranda', role: 'sekertaris', jabatan: 'Sekertaris' },
+    { username: 'Miranda', password: 'Sekertaris', nama: 'Miranda', role: 'sekertaris', jabatan: 'Sekertaris' },
     { username: 'Aulia', password: 'Bendahara', nama: 'Aulia', role: 'bendahara', jabatan: 'Bendahara' },
     { username: 'Akbar', password: 'Bendahara', nama: 'Akbar', role: 'bendahara', jabatan: 'Bendahara' }
 ];
@@ -538,59 +538,9 @@ const updateLaporan = () => {
     }
 };
 
-const setAndroidDownloadStatus = async () => {
-    const apkLink = document.getElementById('download-apk-link');
-    const statusMessage = document.getElementById('download-status-message');
-    if (!apkLink || !statusMessage) return;
-
-    try {
-        const response = await fetch(apkLink.href, { method: 'GET', cache: 'no-store' });
-        if (!response.ok) {
-            statusMessage.textContent = 'APK tidak dapat diakses. Silakan hubungi admin untuk mengganti KarangTaruna.apk dengan APK Android yang valid.';
-            apkLink.classList.add('disabled');
-            apkLink.setAttribute('aria-disabled', 'true');
-            apkLink.removeAttribute('download');
-            apkLink.href = '#';
-            return;
-        }
-
-        const header = new Uint8Array(await response.arrayBuffer()).subarray(0, 4);
-        const isValidApk = header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04;
-
-        if (!isValidApk) {
-            statusMessage.textContent = 'Kesalahan saat mengurai paket: APK saat ini rusak atau bukan APK. Ganti file KarangTaruna.apk dengan paket Android yang benar.';
-            apkLink.classList.add('disabled');
-            apkLink.setAttribute('aria-disabled', 'true');
-            apkLink.removeAttribute('download');
-            apkLink.href = '#';
-        } else {
-            statusMessage.textContent = 'APK Android tersedia. Jika Android masih menolak instalasi, aktifkan izin pemasangan dari sumber tidak dikenal.';
-            apkLink.classList.remove('disabled');
-            apkLink.setAttribute('download', 'Sistem_Karang_Taruna.apk');
-            apkLink.href = 'KarangTaruna.apk';
-        }
-    } catch (error) {
-        statusMessage.textContent = 'Gagal memeriksa APK. Pastikan server memberikan file APK asli dan tidak mengubah isinya.';
-        apkLink.classList.add('disabled');
-        apkLink.setAttribute('aria-disabled', 'true');
-        apkLink.removeAttribute('download');
-    }
-};
-
-const setupIosDownloadButton = () => {
-    const iosBtn = document.getElementById('btn-download-ios');
-    if (!iosBtn) return;
-
-    iosBtn.addEventListener('click', () => {
-        alert('Untuk iPhone, aplikasi harus diunduh dari App Store atau ditambahkan ke layar utama Safari. File .ipa tidak didukung secara langsung dari halaman ini.');
-    });
-};
-
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
-    setAndroidDownloadStatus();
-    setupIosDownloadButton();
 });
 
 // --- Manajemen Anggota ---

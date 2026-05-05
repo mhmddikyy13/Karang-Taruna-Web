@@ -1,51 +1,47 @@
-# Deploy Static Website Publicly
+# Sistem Informasi Karang Taruna Dukuh Klemut RW09
 
-Proyek ini adalah aplikasi web statis yang bisa dihosting publik tanpa meminta login GitHub atau Vercel dari pengunjung.
+Aplikasi web untuk manajemen Karang Taruna Dukuh Klemut RW09. Aplikasi ini dapat diakses langsung melalui browser web di perangkat Android dan iOS.
 
-## Pilihan Hosting Publik
+## Fitur Utama
+- Dashboard dengan statistik kas dan tabungan
+- Manajemen anggota dan struktur organisasi
+- Sistem notulensi rapat
+- Keuangan (pemasukan/pengeluaran)
+- Laporan dan rekapitulasi
 
-### 1. GitHub Pages
-1. Buat repositori GitHub baru dan push semua file dari folder proyek.
-2. Pastikan file utama berada di root repo:
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-   - `sw.js`
-   - `KarangTaruna.apk`
-   - `manifest.json`
-   - `logo.png`
-   - `icon.svg`
-3. Buka pengaturan repo -> Pages.
-4. Pilih sumber `Branch: main` dan `Folder: / (root)`.
-5. Simpan.
-6. Akses situs di URL seperti `https://<username>.github.io/<repo>`.
+## Cara Menggunakan
 
-> Setelah halaman di-publish, siapapun bisa mengakses URL tersebut tanpa login ke GitHub.
+1. Buka situs web di browser (Chrome, Safari, Edge, dll.)
+2. Login menggunakan username dan password pengurus
+3. Akses fitur-fitur sesuai peran Anda
 
-### 2. Netlify
-1. Buat akun Netlify (jika perlu), tetapi pengunjung tidak perlu login.
-2. Deploy dari GitHub repo atau drag & drop folder build ke Netlify.
-3. Pastikan root deploy berisi `index.html`.
-4. Setelah deploy selesai, akses URL publik Netlify.
+## Deploy ke Hosting Publik
 
-> Netlify menyediakan URL publik langsung, tanpa login bagi pengguna akhir.
+### GitHub Pages
+1. Buat repositori GitHub baru
+2. Upload semua file dari folder proyek ini
+3. Buka Settings -> Pages
+4. Pilih branch `main` dan folder `/ (root)`
+5. Simpan dan tunggu deploy selesai
+6. Akses URL: `https://<username>.github.io/<repo-name>`
 
-### 3. Vercel (publik)
-1. Pastikan proyek diatur sebagai publik di Vercel.
-2. Gunakan `Import Project` dari GitHub atau upload manual.
-3. Setelah deploy selesai, gunakan URL produksi Vercel.
-4. Jangan gunakan preview/private deployment jika ingin pengguna akses langsung tanpa login.
+### Netlify
+1. Buat akun Netlify (gratis)
+2. Drag & drop folder proyek atau hubungkan repo GitHub
+3. Deploy otomatis
+4. Dapatkan URL publik
 
-> Jika Vercel meminta login GitHub/Vercel, itu biasanya karena Anda membuka link preview atau deployment privat.
+### Vercel
+1. Buat akun Vercel (gratis)
+2. Import proyek dari GitHub atau upload manual
+3. Pastikan proyek public
+4. Gunakan URL produksi (bukan preview)
 
-## Pastikan
-- Gunakan URL produksi/Publik, bukan Preview Link.
-- Pastikan repositori/proyek tidak diatur sebagai privat.
-- Jika menggunakan Vercel, atur deployment pada project public.
+## Catatan Teknis
+- Aplikasi menggunakan localStorage untuk penyimpanan data
+- Service Worker untuk offline capability
+- Responsive design untuk semua perangkat
+- Tidak memerlukan server backend
 
-## Catatan tentang APK
-- File saat ini `KarangTaruna.apk` adalah placeholder.
-- Jika Anda ingin unduhan Android bekerja, ganti file ini dengan APK Android valid.
-
-## Kesimpulan
-Situs web ini dapat diakses langsung tanpa login ke GitHub/Vercel jika sudah dihosting sebagai situs statis publik. Gunakan GitHub Pages, Netlify, atau Vercel publik untuk mencapai ini.
+## Login
+Gunakan kredensial pengurus inti yang sudah ditentukan dalam kode untuk akses penuh.
