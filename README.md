@@ -14,6 +14,10 @@ Aplikasi web untuk manajemen Karang Taruna Dukuh Klemut RW09. Aplikasi ini dapat
 1. Buka situs web di browser (Chrome, Safari, Edge, dll.)
 2. Login menggunakan username dan password pengurus
 3. Akses fitur-fitur sesuai peran Anda
+4. Untuk berbagi perubahan data dengan pengurus lain, gunakan tombol "Export / Import Data" di Dashboard
+   - export data ke file JSON
+   - berikan file JSON ke pengurus lain
+   - import file JSON untuk menyinkronkan data
 
 ## Deploy ke Hosting Publik
 
@@ -42,6 +46,29 @@ Aplikasi web untuk manajemen Karang Taruna Dukuh Klemut RW09. Aplikasi ini dapat
 - Service Worker untuk offline capability
 - Responsive design untuk semua perangkat
 - Tidak memerlukan server backend
+
+## Sinkronisasi Data Antar Perangkat (Opsional)
+Aplikasi sudah mendukung sinkronisasi data menggunakan Firebase Realtime Database.
+
+1. Buat proyek Firebase di https://console.firebase.google.com/
+2. Tambahkan aplikasi web baru di Firebase
+3. Salin `firebaseConfig` dari pengaturan konfigurasi SDK Firebase
+4. Buka `app.js` dan isi nilai di objek `firebaseConfig`:
+   - `apiKey`
+   - `authDomain`
+   - `databaseURL`
+   - `projectId`
+   - `storageBucket`
+   - `messagingSenderId`
+   - `appId`
+5. Pastikan Realtime Database Anda memiliki aturan yang mengizinkan pembacaan/tulisan sederhana selama uji coba.
+
+> Setelah Firebase terkonfigurasi, semua pengurus yang membuka aplikasi di domain yang sama akan menyinkronkan data otomatis.
+
+## Akses di iPhone
+- Buka aplikasi di Safari, bukan browser lain seperti Chrome atau browser bawaan aplikasi lain.
+- Pastikan URL situs berada di HTTPS.
+- Untuk membuat shortcut di layar utama, klik ikon bagikan, lalu pilih "Tambahkan ke Layar Utama".
 
 ## Login
 Gunakan kredensial pengurus inti yang sudah ditentukan dalam kode untuk akses penuh.

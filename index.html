@@ -2,7 +2,12 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Karang Taruna Klemut">
+    <meta name="format-detection" content="telephone=no">
     <title>Sistem Informasi Karang Taruna Klemut RW09</title>
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
@@ -38,6 +43,9 @@
                 <p style="margin-bottom: 10px; font-size: 0.9rem; color: #a0aec0;">Selamat datang di Sistem Informasi Karang Taruna</p>
                 <p style="font-size: 0.85rem; color: #f7fafc; opacity: 0.8; max-width: 360px; margin-left: auto; margin-right: auto; line-height: 1.4;">
                     Aplikasi ini dapat diakses melalui browser web di perangkat Android dan iPhone.
+                </p>
+                <p style="font-size: 0.82rem; color: #a0aec0; max-width: 360px; margin-left: auto; margin-right: auto; line-height: 1.4;">
+                    Untuk iPhone, gunakan Safari dan buka halaman ini langsung dari URL publik. Gunakan tombol bagikan lalu pilih "Tambahkan ke Layar Utama" untuk membuat shortcut.
                 </p>
             </div>
         </div>
@@ -115,6 +123,13 @@
                     <div class="widget glass-panel">
                         <h3><i class="fa-solid fa-list-check"></i> Agenda Rapat (Malam Minggu 1)</h3>
                         <p class="text-muted">Jadwal rutin kumpul dan evaluasi bulanan seluruh anggota dan pengurus.</p>
+                    </div>
+                    <div class="widget glass-panel">
+                        <h3><i class="fa-solid fa-cloud-arrow-up"></i> Sinkronisasi Data</h3>
+                        <p class="text-muted">Eksport data saat ini dan beri ke pengurus lain, atau impor data terbaru dari mereka.</p>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                            <button id="btn-open-export-import" class="btn btn-secondary btn-full action-restricted" data-allowed="bendahara,ketua,wakil,sekertaris">Export / Import Data</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -262,7 +277,7 @@
                 <div id="tab-transaksi" class="tab-content glass-panel">
                     <div class="toolbar">
                         <h3>Daftar Transaksi Bulanan</h3>
-                        <button class="btn btn-primary" id="btn-tambah-transaksi"><i class="fa-solid fa-plus"></i> Tambah Transaksi</button>
+                        <button class="btn btn-primary action-restricted" data-allowed="bendahara,ketua,wakil" id="btn-tambah-transaksi"><i class="fa-solid fa-plus"></i> Tambah Transaksi</button>
                     </div>
                     <div class="finance-summary">
                         <div class="finance-box income">
@@ -304,7 +319,7 @@
                         <h1>Manajemen Anggota</h1>
                         <p>Kelola data anggota Karang Taruna (Tambah, Edit, Hapus)</p>
                     </div>
-                    <button class="btn btn-primary" id="btn-tambah-anggota">
+                    <button class="btn btn-primary action-restricted" data-allowed="sekertaris,ketua" id="btn-tambah-anggota">
                         <i class="fa-solid fa-user-plus"></i> Tambah Anggota
                     </button>
                 </header>
@@ -528,6 +543,28 @@
         </div>
     </div>
 
+    <!-- Modal Export / Import Data -->
+    <div id="modal-export-import" class="modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>Export / Import Data</h2>
+                <button class="close-modal"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Gunakan export untuk membuat file data, lalu berikan file itu ke pengurus lain untuk diimpor agar data sinkron.</p>
+                <button id="btn-export-data" class="btn btn-primary btn-full mb-3 action-restricted" data-allowed="bendahara,ketua,wakil,sekertaris">Export Data ke JSON</button>
+                <div class="form-group">
+                    <label>Paste JSON di sini untuk import:</label>
+                    <textarea id="input-import-json" rows="8" placeholder="Tempel data JSON di sini..."></textarea>
+                </div>
+                <button id="btn-import-data" class="btn btn-secondary btn-full action-restricted" data-allowed="bendahara,ketua,wakil,sekertaris">Impor Data dari JSON</button>
+                <small class="text-muted" style="display:block; margin-top: 12px;">Pastikan data berasal dari file export yang valid.</small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-database-compat.js"></script>
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {

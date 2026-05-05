@@ -67,7 +67,38 @@ let appData = {
 
 let currentUser = {
     role: null, // ketua, wakil, sekertaris, bendahara, humas_rt01, humas_rt02, sosmed, anggota
-    name: null
+    name: null,
+    jabatan: null
+};
+
+const AUTH_KEY = 'karangTarunaAuth_v1';
+
+const saveAuthState = () => {
+    localStorage.setItem(AUTH_KEY, JSON.stringify(currentUser));
+};
+
+const clearAuthState = () => {
+    localStorage.removeItem(AUTH_KEY);
+};
+
+const restoreAuthState = () => {
+    const saved = localStorage.getItem(AUTH_KEY);
+    if (!saved) return;
+
+    try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.role && parsed.name) {
+            currentUser = parsed;
+            document.getElementById('login-screen').classList.remove('active');
+            document.getElementById('app-screen').classList.add('active');
+            document.getElementById('current-user-role').textContent = `${currentUser.name}${currentUser.jabatan ? ` (${currentUser.jabatan})` : ''}`;
+            applyRBAC();
+            const dashboardLink = document.querySelector('.nav-links a[data-target="dashboard"]');
+            if (dashboardLink) dashboardLink.click();
+        }
+    } catch (error) {
+        console.warn('Gagal memulihkan sesi login:', error);
+    }
 };
 
 // Utilities
@@ -81,10 +112,85 @@ const formatDate = (dateStr) => {
 };
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+const STORAGE_KEY = 'karangTarunaData_v2';
+
+// Firebase Realtime Database configuration (optional)
+const firebaseConfig = {
+    apiKey: "", // isi dengan API key Firebase Anda
+    authDomain: "",
+    databaseURL: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+};
+
+let firebaseApp = null;
+let firebaseDatabase = null;
+let firebaseRef = null;
+let remoteSyncEnabled = false;
+let isRemoteWriting = false;
+
+const initFirebaseSync = () => {
+    if (!window.firebase || !firebaseConfig.apiKey || !firebaseConfig.databaseURL) {
+        console.warn('Firebase tidak dikonfigurasi atau skrip Firebase tidak tersedia. Sinkronisasi remote dinonaktifkan.');
+        return;
+    }
+
+    try {
+        firebaseApp = firebase.initializeApp(firebaseConfig);
+        firebaseDatabase = firebase.database(firebaseApp);
+        firebaseRef = firebaseDatabase.ref(STORAGE_KEY);
+        remoteSyncEnabled = true;
+        firebaseRef.on('value', snapshot => {
+            if (isRemoteWriting) {
+                return;
+            }
+            const remoteData = snapshot.val();
+            if (!remoteData) {
+                return;
+            }
+            const localJson = JSON.stringify(appData);
+            const remoteJson = JSON.stringify(remoteData);
+            if (remoteJson !== localJson) {
+                appData = remoteData;
+                saveDataWithoutRemote();
+                console.log('Data tersinkronisasi dari Firebase.');
+            }
+        });
+        console.log('Firebase sync diinisialisasi.');
+    } catch (error) {
+        console.warn('Inisialisasi Firebase gagal:', error);
+        remoteSyncEnabled = false;
+    }
+};
+
+const saveDataToRemote = () => {
+    if (!remoteSyncEnabled || !firebaseRef) return;
+    try {
+        isRemoteWriting = true;
+        firebaseRef.set(appData).finally(() => {
+            isRemoteWriting = false;
+        });
+    } catch (error) {
+        console.warn('Gagal menyimpan data ke Firebase:', error);
+        isRemoteWriting = false;
+    }
+};
+
+const saveDataWithoutRemote = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    updateDashboard();
+    renderKasTable();
+    renderTransaksiTable();
+    renderNotulensi();
+    updateLaporan();
+    if (typeof renderManageAnggota === 'function') renderManageAnggota();
+};
 
 // Load Data
 const loadData = () => {
-    const saved = localStorage.getItem('karangTarunaData_v2');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
         appData = JSON.parse(saved);
         
@@ -118,14 +224,66 @@ const loadData = () => {
 };
 
 const saveData = () => {
-    localStorage.setItem('karangTarunaData_v2', JSON.stringify(appData));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
     updateDashboard();
     renderKasTable();
     renderTransaksiTable();
     renderNotulensi();
     updateLaporan();
     if (typeof renderManageAnggota === 'function') renderManageAnggota();
+    if (remoteSyncEnabled) {
+        saveDataToRemote();
+    }
 };
+
+const exportAppData = () => {
+    const dataStr = JSON.stringify(appData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `karangtaruna-data-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+const importAppData = (jsonString) => {
+    try {
+        const parsed = JSON.parse(jsonString);
+        if (!parsed || typeof parsed !== 'object') throw new Error('Format JSON tidak valid.');
+        if (!Array.isArray(parsed.anggota) || !Array.isArray(parsed.transaksi) || !Array.isArray(parsed.notulensi)) {
+            throw new Error('Struktur data tidak sesuai.');
+        }
+
+        appData = parsed;
+        saveData();
+        alert('Data berhasil diimpor dan disimpan.');
+        document.getElementById('modal-export-import').classList.remove('active');
+        return true;
+    } catch (error) {
+        alert('Gagal mengimpor data: ' + error.message);
+        return false;
+    }
+};
+
+window.addEventListener('storage', (event) => {
+    if (event.key !== STORAGE_KEY) return;
+    if (!event.newValue) return;
+
+    try {
+        appData = JSON.parse(event.newValue);
+        updateDashboard();
+        renderKasTable();
+        renderTransaksiTable();
+        renderNotulensi();
+        updateLaporan();
+        if (typeof renderManageAnggota === 'function') renderManageAnggota();
+    } catch (error) {
+        console.error('Gagal menyinkronkan data dari storage:', error);
+    }
+});
 
 // Data Pengurus Inti (Hanya akun ini yang diizinkan masuk)
 const ALLOWED_USERS = [
@@ -158,7 +316,8 @@ btnLogin.addEventListener('click', () => {
         return;
     }
 
-    currentUser = { role: user.role, name: user.nama };
+    currentUser = { role: user.role, name: user.nama, jabatan: user.jabatan };
+    saveAuthState();
     
     // Switch Screen
     document.getElementById('login-screen').classList.remove('active');
@@ -173,7 +332,8 @@ btnLogin.addEventListener('click', () => {
 });
 
 btnLogout.addEventListener('click', () => {
-    currentUser = { role: null, name: null };
+    currentUser = { role: null, name: null, jabatan: null };
+    clearAuthState();
     document.getElementById('app-screen').classList.remove('active');
     document.getElementById('login-screen').classList.add('active');
 });
@@ -263,9 +423,9 @@ const renderKasTable = (searchTerm = '') => {
 
     filtered.forEach(a => {
         const statusClass = a.kasBulanIni === 'Lunas' ? 'status-lunas' : 'status-belum';
-        const isBendahara = ['bendahara', 'ketua'].includes(currentUser.role);
+        const isKeuanganEditor = ['bendahara', 'ketua', 'wakil'].includes(currentUser.role);
         
-        const actionBtn = isBendahara 
+        const actionBtn = isKeuanganEditor 
             ? `<button class="btn btn-secondary btn-sm" onclick="openKasModal(${a.id})"><i class="fa-solid fa-edit"></i> Update</button>`
             : `-`;
 
@@ -363,8 +523,8 @@ const renderTransaksiTable = () => {
         const textClass = t.jenis === 'Pemasukan' ? 'text-success' : 'text-danger';
         const sign = t.jenis === 'Pemasukan' ? '+' : '-';
         
-        const isBendahara = ['bendahara', 'ketua'].includes(currentUser.role);
-        const actionBtn = isBendahara 
+        const isKeuanganEditor = ['bendahara', 'ketua', 'wakil'].includes(currentUser.role);
+        const actionBtn = isKeuanganEditor 
             ? `<button class="btn btn-danger-outline btn-sm" onclick="deleteTransaksi('${t.id}')"><i class="fa-solid fa-trash"></i></button>`
             : `-`;
 
@@ -540,7 +700,50 @@ const updateLaporan = () => {
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+    initFirebaseSync();
     loadData();
+    restoreAuthState();
+
+    if (remoteSyncEnabled && firebaseRef) {
+        firebaseRef.once('value')
+            .then(snapshot => {
+                if (snapshot.exists()) {
+                    const remoteData = snapshot.val();
+                    if (JSON.stringify(remoteData) !== JSON.stringify(appData)) {
+                        appData = remoteData;
+                        saveDataWithoutRemote();
+                    }
+                } else {
+                    saveDataToRemote();
+                }
+            })
+            .catch(error => console.warn('Gagal mengambil data remote:', error));
+    }
+
+    const exportOpenBtn = document.getElementById('btn-open-export-import');
+    if (exportOpenBtn) {
+        exportOpenBtn.addEventListener('click', () => {
+            document.getElementById('input-import-json').value = '';
+            document.getElementById('modal-export-import').classList.add('active');
+        });
+    }
+
+    const exportBtn = document.getElementById('btn-export-data');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportAppData);
+    }
+
+    const importBtn = document.getElementById('btn-import-data');
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            const jsonString = document.getElementById('input-import-json').value.trim();
+            if (!jsonString) {
+                alert('Masukkan data JSON yang valid untuk diimpor.');
+                return;
+            }
+            importAppData(jsonString);
+        });
+    }
 });
 
 // --- Manajemen Anggota ---
