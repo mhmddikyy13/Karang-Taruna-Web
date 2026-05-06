@@ -62,7 +62,9 @@ const INITIAL_ANGGOTA = [
 let appData = {
     anggota: [],
     transaksi: [], // {id, tanggal, jenis(Pemasukan/Pengeluaran), keterangan, nominal}
-    notulensi: [] // {id, tanggal, judul, hasil}
+    notulensi: [], // {id, tanggal, judul, hasil}
+    totalKasManual: null, // Nilai override untuk total kas terkumpul
+    totalTabunganManual: null // Nilai override untuk total tabungan
 };
 
 let currentUser = {
@@ -89,12 +91,32 @@ const restoreAuthState = () => {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.role && parsed.name) {
             currentUser = parsed;
+            window.currentUser = currentUser;
             document.getElementById('login-screen').classList.remove('active');
             document.getElementById('app-screen').classList.add('active');
             document.getElementById('current-user-role').textContent = `${currentUser.name}${currentUser.jabatan ? ` (${currentUser.jabatan})` : ''}`;
             applyRBAC();
+            
+            // Show dashboard page
+            const navLinks = document.querySelectorAll('.nav-links a');
+            const pages = document.querySelectorAll('.page');
+            navLinks.forEach(l => l.classList.remove('active'));
+            pages.forEach(p => p.classList.remove('active'));
+            
             const dashboardLink = document.querySelector('.nav-links a[data-target="dashboard"]');
-            if (dashboardLink) dashboardLink.click();
+            const dashboardPage = document.getElementById('dashboard');
+            if (dashboardLink && dashboardPage) {
+                dashboardLink.classList.add('active');
+                dashboardPage.classList.add('active');
+            }
+            
+            // Update all UI elements after auth is restored
+            updateDashboard();
+            renderKasTable();
+            renderTransaksiTable();
+            renderNotulensi();
+            updateLaporan();
+            if (typeof renderManageAnggota === 'function') renderManageAnggota();
         }
     } catch (error) {
         console.warn('Gagal memulihkan sesi login:', error);
@@ -116,13 +138,14 @@ const STORAGE_KEY = 'karangTarunaData_v2';
 
 // Firebase Realtime Database configuration (optional)
 const firebaseConfig = {
-    apiKey: "", // isi dengan API key Firebase Anda
-    authDomain: "",
-    databaseURL: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyAVsKtRg4lB7YvdQre6EZsntKECmTVrDTQ",
+    authDomain: "karang-taruna-web.firebaseapp.com",
+    databaseURL: "https://karang-taruna-web.firebaseio.com",
+    projectId: "karang-taruna-web",
+    storageBucket: "karang-taruna-web.firebasestorage.app",
+    messagingSenderId: "226580195417",
+    appId: "1:226580195417:web:fae7ea68a26da250f56948",
+    measurementId: "G-G0LVPS09EL"
 };
 
 let firebaseApp = null;
@@ -155,6 +178,7 @@ const initFirebaseSync = () => {
             if (remoteJson !== localJson) {
                 appData = remoteData;
                 saveDataWithoutRemote();
+                setSyncStatus('Data diperbarui dari server', true);
                 console.log('Data tersinkronisasi dari Firebase.');
             }
         });
@@ -165,16 +189,38 @@ const initFirebaseSync = () => {
     }
 };
 
+const setSyncStatus = (message, active = false) => {
+    const statusEl = document.getElementById('sync-status');
+    if (!statusEl) return;
+    statusEl.innerHTML = `Status sinkronisasi: <strong>${message}</strong>`;
+    statusEl.style.background = active ? 'rgba(16, 185, 129, 0.16)' : 'rgba(15, 23, 42, 0.6)';
+    statusEl.style.color = '#f8fafc';
+};
+
+const initSyncStatus = () => {
+    if (remoteSyncEnabled) {
+        setSyncStatus('Aktif - data akan tersinkron otomatis antar pengurus', true);
+    } else {
+        setSyncStatus('Tidak aktif - Firebase belum dikonfigurasi', false);
+    }
+};
+
 const saveDataToRemote = () => {
     if (!remoteSyncEnabled || !firebaseRef) return;
     try {
         isRemoteWriting = true;
-        firebaseRef.set(appData).finally(() => {
+        firebaseRef.set(appData).then(() => {
+            setSyncStatus('Aktif - perubahan tersimpan ke server', true);
+        }).catch((error) => {
+            console.warn('Gagal menyimpan data ke Firebase:', error);
+            setSyncStatus('Terjadi kesalahan saat menyimpan ke server', false);
+        }).finally(() => {
             isRemoteWriting = false;
         });
     } catch (error) {
         console.warn('Gagal menyimpan data ke Firebase:', error);
         isRemoteWriting = false;
+        setSyncStatus('Terjadi kesalahan sinkronisasi', false);
     }
 };
 
@@ -194,6 +240,11 @@ const loadData = () => {
     if (saved) {
         appData = JSON.parse(saved);
         
+        // Ensure totalKasManual exists
+        if (appData.totalKasManual === undefined) {
+            appData.totalKasManual = null;
+        }
+        
         let needSave = false;
         appData.anggota = appData.anggota.map(a => {
             if (!a.username) {
@@ -203,15 +254,17 @@ const loadData = () => {
             return a;
         });
         
+        if (appData.totalKasManual === undefined) {
+            appData.totalKasManual = null;
+            needSave = true;
+        }
+        if (appData.totalTabunganManual === undefined) {
+            appData.totalTabunganManual = null;
+            needSave = true;
+        }
+        
         if (needSave) {
             saveData();
-        } else {
-            updateDashboard();
-            renderKasTable();
-            renderTransaksiTable();
-            renderNotulensi();
-            updateLaporan();
-            if (typeof renderManageAnggota === 'function') renderManageAnggota();
         }
     } else {
         appData.anggota = INITIAL_ANGGOTA.map(a => ({
@@ -219,6 +272,7 @@ const loadData = () => {
             username: a.nama.toLowerCase().replace(/\s+/g, ''),
             password: '123'
         }));
+        appData.totalKasManual = null;
         saveData();
     }
 };
@@ -317,6 +371,7 @@ btnLogin.addEventListener('click', () => {
     }
 
     currentUser = { role: user.role, name: user.nama, jabatan: user.jabatan };
+    window.currentUser = currentUser;
     saveAuthState();
     
     // Switch Screen
@@ -326,6 +381,12 @@ btnLogin.addEventListener('click', () => {
     // Set UI
     document.getElementById('current-user-role').textContent = `${user.nama} (${user.jabatan})`;
     applyRBAC();
+    updateDashboard();
+    renderKasTable();
+    renderTransaksiTable();
+    renderNotulensi();
+    updateLaporan();
+    if (typeof renderManageAnggota === 'function') renderManageAnggota();
     
     // Load default page
     document.querySelector('.nav-links a[data-target="dashboard"]').click();
@@ -639,14 +700,37 @@ window.deleteNotulensi = (id) => {
 
 // --- Dashboard & Laporan ---
 const updateDashboard = () => {
-    // Total Kas (Kas Bulan Ini Lunas * 5000)
-    const totalKasBulanIni = appData.anggota.filter(a => a.kasBulanIni === 'Lunas').length * 5000;
+    // Total Kas (Kas Bulan Ini Lunas * 5000 atau Manual jika sudah diset)
+    const totalKasBulanIni = appData.totalKasManual !== null && appData.totalKasManual !== undefined ? appData.totalKasManual : appData.anggota.filter(a => a.kasBulanIni === 'Lunas').length * 5000;
     
     // Total Tabungan Keseluruhan
     const totalTabungan = appData.anggota.reduce((sum, a) => sum + a.tabungan, 0);
+    const displayTabungan = appData.totalTabunganManual !== null && appData.totalTabunganManual !== undefined ? appData.totalTabunganManual : totalTabungan;
 
     document.getElementById('dash-total-kas').textContent = formatRp(totalKasBulanIni);
-    document.getElementById('dash-total-tabungan').textContent = formatRp(totalTabungan);
+    document.getElementById('dash-total-tabungan').textContent = formatRp(displayTabungan);
+
+    // Tampilkan tombol edit hanya untuk Ketua, Wakil, Bendahara
+    const btnEditKas = document.getElementById('btn-edit-total-kas');
+    const btnEditTabungan = document.getElementById('btn-edit-total-tabungan');
+    const canEdit = ['ketua', 'wakil', 'bendahara'].includes(currentUser.role);
+    if (btnEditKas) {
+        btnEditKas.style.display = canEdit ? 'block' : 'none';
+        
+        btnEditKas.onclick = () => {
+            const currentValue = appData.totalKasManual !== null && appData.totalKasManual !== undefined ? appData.totalKasManual : appData.anggota.filter(a => a.kasBulanIni === 'Lunas').length * 5000;
+            document.getElementById('input-total-kas-value').value = currentValue;
+            document.getElementById('modal-edit-total-kas').classList.add('active');
+        };
+    }
+    if (btnEditTabungan) {
+        btnEditTabungan.style.display = canEdit ? 'block' : 'none';
+        btnEditTabungan.onclick = () => {
+            const currentValue = appData.totalTabunganManual !== null && appData.totalTabunganManual !== undefined ? appData.totalTabunganManual : totalTabungan;
+            document.getElementById('input-total-tabungan-value').value = currentValue;
+            document.getElementById('modal-edit-total-tabungan').classList.add('active');
+        };
+    }
 
     // Pengumuman Terakhir
     const lastNotulensi = [...appData.notulensi].sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal))[0];
@@ -700,9 +784,26 @@ const updateLaporan = () => {
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
-    initFirebaseSync();
+    // 1. Load data FIRST so appData is available
     loadData();
+    
+    // 2. Restore auth state SECOND so currentUser is set
     restoreAuthState();
+    
+    // 3. Update all UI elements NOW that data and auth are ready
+    // Only update if user is not already logged in (fresh page visit before login)
+    if (!localStorage.getItem(AUTH_KEY)) {
+        updateDashboard();
+        renderKasTable();
+        renderTransaksiTable();
+        renderNotulensi();
+        updateLaporan();
+        if (typeof renderManageAnggota === 'function') renderManageAnggota();
+    }
+    
+    // 4. Initialize Firebase sync
+    initFirebaseSync();
+    initSyncStatus();
 
     if (remoteSyncEnabled && firebaseRef) {
         firebaseRef.once('value')
@@ -743,6 +844,51 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             importAppData(jsonString);
         });
+    }
+
+    const formEditTotalKas = document.getElementById('form-edit-total-kas');
+    if (formEditTotalKas) {
+        formEditTotalKas.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newValue = parseInt(document.getElementById('input-total-kas-value').value) || 0;
+            appData.totalKasManual = newValue;
+            saveData();
+            document.getElementById('modal-edit-total-kas').classList.remove('active');
+            alert('Total Kas Terkumpul berhasil diperbarui.');
+        });
+    }
+
+    const formEditTotalTabungan = document.getElementById('form-edit-total-tabungan');
+    if (formEditTotalTabungan) {
+        formEditTotalTabungan.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newValue = parseInt(document.getElementById('input-total-tabungan-value').value) || 0;
+            appData.totalTabunganManual = newValue;
+            saveData();
+            document.getElementById('modal-edit-total-tabungan').classList.remove('active');
+            alert('Total Tabungan berhasil diperbarui.');
+        });
+    }
+
+    // Setup modal close for edit total kas and tabungan
+    const modalEditKas = document.getElementById('modal-edit-total-kas');
+    if (modalEditKas) {
+        const closeBtn = modalEditKas.querySelector('.close-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modalEditKas.classList.remove('active');
+            });
+        }
+    }
+
+    const modalEditTabungan = document.getElementById('modal-edit-total-tabungan');
+    if (modalEditTabungan) {
+        const closeBtn = modalEditTabungan.querySelector('.close-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modalEditTabungan.classList.remove('active');
+            });
+        }
     }
 });
 
